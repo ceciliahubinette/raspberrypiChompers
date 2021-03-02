@@ -1,0 +1,99 @@
+from time import sleep
+from datetime import datetime
+from datetime import timedelta
+from sense_hat import SenseHat
+sense = SenseHat()
+
+lower_bound = 0
+upper_bound = 7
+
+
+playerA_position = (2, 0)
+#playerB_position = [5][5]
+red = [255, 0, 0] # red
+blue = [0, 0, 255] # blue
+white = [255, 255, 255] #white
+w = [255, 255, 255]
+c = [0, 0, 0] #clear color
+
+barriers = [
+    [c, c, c, c, c, c, c, c],
+    [c, c, c, c, c, w, w, w],
+    [c, c, c, c, c, w, c, c],
+    [c, c, c, c, c, c, c, c],
+    [c, c, w, c, c, c, c, c],
+    [c, c, w, c, c, c, c, c],
+    [c, c, w, c, c, c, c, c],
+    [c, c, c, c, c, c, c, c],
+]
+
+def draw_playerA():
+    sense.set_pixel(playerA_position, red) #pixel location
+    
+#def draw_playerB():
+   # sense.set_pixel(playerB_position, blue)
+
+# Here you should just check the new position and see if it's valid
+def try_to_move(old_position, new_position):
+    old_position = playerA_position
+    if playerA_position != w: #and playerA_position != playerB_position:
+        return new_position
+    return old_position
+    # if the new position is valid
+    # (not a wall && not where the other player is && not out of bounds)
+    # then move to the new position
+    # else do nothing
+    pass
+
+# Here would be your `move_up`, `move_down`, `move_left`, and `move_right`
+# functions, which should look something like...
+
+
+def move_up(event):
+    if event.action == 'pressed':
+        # the desired new position is one above the old position
+        new_position = (playerA_position[0]-1, playerA_position[1])
+        try_to_move(playerA_position, new_position)
+    print(event)
+    
+def move_down(event):
+    if event.action == 'pressed':
+        # the desired new position is one above the old position
+        new_position = (playerA_position[0]+ 1, playerA_position[1])
+        try_to_move(playerA_position, new_position)
+    print(event)
+
+def move_left(event):
+    if event.action == 'pressed':
+        # the desired new position is one above the old position
+        new_position = (playerA_position[0]-1, playerA_position[1])
+        try_to_move(playerA_position, new_position)
+    print(event)
+    
+def move_right(event):
+    if event.action == 'pressed':
+        # the desired new position is one above the old position
+        new_position = (playerA_position[0]+1, playerA_position[1])
+        try_to_move(playerA_position, new_position)
+    print(event)
+
+
+sense.stick.direction_up = move_up
+sense.stick.direction_down = move_down
+sense.stick.direction_right = move_right
+sense.stick.direction_left = move_left
+
+#makes it all appear on the board 
+start_time = datetime.now()
+while True:
+    current_time = datetime.now()
+    if current_time - start_time > timedelta(seconds=60):
+        sense.show_message("Round Over")
+        pass
+    sense.clear() #this clears the space after the player moves - if this isn't ear itleaves a light trail behind it so look into that
+    #playerA(x,a,new_x,new_a)
+    draw_playerA()
+    #draw_playerB() 
+    sense.set_pixels(sum(barriers,[]))
+    #barrier()
+
