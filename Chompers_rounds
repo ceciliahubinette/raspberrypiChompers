@@ -1,0 +1,294 @@
+# PLAYER A
+
+from datetime import timedelta
+from datetime import datetime
+from sense_hat import SenseHat, ACTION_RELEASED
+from time import sleep
+
+sense = SenseHat()
+
+
+#from paho.mqtt import publish
+#from paho.mqtt import mqtt
+import paho.mqtt.publish as publish
+import paho.mqtt.client as mqtt
+
+client = mqtt.Client()
+
+
+red = [255, 0, 0]
+yellow = [255, 255, 0] #trail
+
+blue = [0, 0, 255]
+green = [0, 255, 0] #trail
+
+orange = [255, 220,0]
+teal = [59, 185, 255]
+
+player_a_bomb = None
+player_a_bomb_location = None
+
+player_a = {
+    'x': 0,
+    'y': 2,
+    'color': red,
+    'is_frozen' : False,
+    'frozen_at': None,
+    'ready_to_play': False,
+}
+
+player_b = {
+    'x': 7,
+    'y': 6,
+    'color': blue,
+    'is_frozen' : False,
+    'frozen_at': None,
+    'ready_to_play': False,
+}
+
+w = [255, 255, 255]  # white
+c = [0, 0, 0]  # clear color
+
+x=4
+y=4
+
+rounds = {
+    'level_1': None,
+    'level_2' : None,
+    'level_3' : None,
+}
+
+barriers = [
+    [c, c, c, c, c, c, c, c],
+    [c, c, c, c, c, w, w, w],
+    [c, c, c, c, c, w, c, c],
+    [c, c, c, c, c, c, c, c],
+    [c, c, w, c, c, c, c, c],
+    [c, c, w, c, c, c, c, c],
+    [c, c, w, c, c, c, c, c],
+    [c, c, c, c, c, c, c, c],
+]
+
+barriers_2 = [
+    [c, c, c, c, c, c, c, c],
+    [c, c, c, c, c, w, w, w],
+    [c, c, c, c, c, w, c, c],
+    [c, c, c, c, c, w, w, c],
+    [w, w, w, c, c, c, w, c],
+    [c, c, w, c, c, c, c, c],
+    [c, c, w, w, c, c, c, c],
+    [c, c, c, c, c, c, c, c],
+]
+
+barriers_3 = [
+    [c, c, c, c, w, c, c, c],
+    [c, c, c, c, w, w, c, c],
+    [w, w, c, c, c, w, c, c],
+    [c, w, c, c, c, w, w, c],
+    [c, w, c, c, c, c, w, c],
+    [c, w, w, c, c, c, c, c],
+    [c, c, c, c, w, w, c, c],
+    [c, c, c, c, w, c, c, c],
+]
+
+def draw_player(player):
+    sense.set_pixel(
+        player['x'],
+        player['y'],
+        player['color'],
+    )
+
+def  start_game(player):
+    if player:
+        player['ready_to_play'] = True
+        
+def levels(rounds):
+    if rounds['level_1']:
+        sense.set_pixels(sum(barriers, []))
+        rounds['level_1'] = datetime.now()
+    if rounds['level_2']:
+        sense.set_pixels(sum(barriers_2, []))
+        rounds['level_2'] = datetime.now()
+    if rounds['level_3']:
+        sense.set_pixels(sum(barriers_3, []))
+        rounds['level_3'] = datetime.now()
+  
+
+def move(player_a, desired_position):
+    if player['is_frozen']:
+        return
+    if desired_position['x'] < 0 or desired_position['y'] < 0 or desired_position['x'] > 7 or desired_position['y'] > 7:  # makes sure the player isn't going out of bounds and if it is it won't more and stay in currentpoosition 
+        return
+    if barriers[desired_position['y']][desired_position['x']] == w : # if its attempting to move into the whit/barrier it won't move
+        return
+    sense.set_pixel(player_a['x'],player_a['y'], yellow) #yellow is trail
+    sense.set_pixel(player_b['x'],player_b['y'], green)
+    player_a['x'] = desired_position['x'] # if its not out of bounds and not moving to a white pixel it will move to the desired location 
+    player_a['y'] = desired_position['y']
+    global player_a_bomb
+    global player_a_bomb_location
+    if player_a_bomb is not None and type(player_a_bomb) != type(datetime.now()): #type of the variable is not the same
+        sense.set_pixel(player_a_bomb['x'], player_a_bomb['y'], orange)
+        player_a_bomb_location = player_a_bomb
+        player_a_bomb = datetime.now() # will time stamp when the bomb is dropped 
+    if player_a_bomb_location is not None and player['x'] == player_a_bomb_location['x'] and player['y'] == player_a_bomb_location['y']: #is making sure the location of bomb and player is at the same place 
+        player['is_frozen'] = True
+        player['frozen_at'] = datetime.now()
+        player_a_bomb = None # takes the bomb out of play, makes sure it won't earse the player and the bomb
+        player_a_bomb_location = None
+    draw_player(player_a)
+
+#moving part - sending player B's movement
+def move_up(event):
+    if event.action != ACTION_RELEASED:
+        move(
+            player_a,
+            {'x': player_a['x'], 'y': player_a['y'] - 1},
+        )
+        publish.single("ChompersAC/test", "up", hostname="broker.hivemq.com")
+        # publish.single("ChompersAC/test", "up", hostname="broker.hivemq.com")
+
+
+def move_down(event):
+    if event.action != ACTION_RELEASED:
+        move(
+            player_a,
+            {'x': player_a['x'], 'y': player_a['y'] + 1}, 
+        )
+        publish.single("ChompersAC/test", "down", hostname="broker.hivemq.com")
+
+
+def move_left(event):
+    if event.action != ACTION_RELEASED:
+        move(
+            player_a,
+            {'x': player_a['x'] - 1, 'y': player_a['y']},
+        )
+        publish.single("ChompersAC/test", "left", hostname="broker.hivemq.com")
+
+def move_right(event):
+    if event.action != ACTION_RELEASED:
+        move(
+            player_a,
+            {'x': player_a['x'] + 1, 'y': player_a['y']},
+        )
+        publish.single("ChompersAC/test", "right", hostname="broker.hivemq.com")
+        
+def middle(event):
+    global player_a_bomb
+    if event.action == 'pressed' and player_a_bomb is None:
+        player_a_bomb = {'x': player_a['x'], 'y': player_a['y']}
+        
+# connecting to player B
+def on_connect(client, userdata, flags, rc):
+    print("Connected with result code "+str(rc))
+    
+    #Note: by subscribing in on_connect, the subscription is renewed if connection is dropped
+    client.subscribe("ChompersAC/test")        
+
+#receiving player A's movements
+def on_message(client, userdata, msg):
+    print(msg.topic+" "+msg.payload.decode())
+    global y
+    global x
+    
+    # Each time a direction message is received, change the x or y variable
+    if msg.payload.decode() == 'up':
+        print(msg.payload.decode())
+        y= y-1
+        if y<0:
+            y = 7
+        
+    if msg.payload.decode() == 'down':
+        print(msg.payload.decode())
+        y= y+1
+        if y>7:
+            y = 0
+
+    if msg.payload.decode() == 'left':
+        print(msg.payload.decode())
+        x= x-1
+        if x<0:
+            x=7
+        
+    if msg.payload.decode() == 'right':
+        print(msg.payload.decode())
+        x= x+1
+        if x>7:
+            x=0
+            
+#mqtt client stuff
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect("broker.hivemq.com", 1883, 60)
+client.loop_start()            
+    
+
+#own player stuff
+sense.stick.direction_up = move_up
+sense.stick.direction_down = move_down
+sense.stick.direction_right = move_right
+sense.stick.direction_left = move_left
+
+
+start_time = datetime.now()
+sense.clear()
+draw_player(player_a)
+draw_player(player_b)
+
+#winner screen
+def winner_screen():
+    if score_a > score_b: #who wins
+        sense.show_message("P1 !!!", text_colour=[255, 0, 0])
+    elif score_a < score_b:
+        sense.show_message("P2 !!!", text_colour=[0, 0, 255])
+    elif score_a == score_b:
+        sense.show_message("no one !!!", text_colour=[255, 255, 255])
+
+while True:    
+    #timer part
+    sleep(1)
+    current_time = datetime.now()
+    if player_a['ready_to_play'] == True and player_b['ready_to_play'] == True:
+        sense.set_pixels(sum(barriers, []))
+    if current_time - rounds['level_1'] > timedelta(seconds=60):
+        sense.show_message("Round 1 Over")
+        sense.show_message("Next Round in 3, 2, 1")
+    
+    if current_time - rounds['level_1'] > timedelta(seconds=60):
+        sense.show_message("Round 1 Over")
+        sense.show_message("Next Round in 3, 2, 1")
+        # bomb placin and freezing
+    if type(player_a_bomb) == type(current_time) and current_time - player_a_bomb > timedelta(seconds=5):
+        sense.set_pixel(player_a_bomb_location['x'], player_a_bomb_location['y'], c)
+        player_a_bomb = None # will clear info
+        player_a_bomb_location = None
+    if player_a['is_frozen'] and current_time - player_a['frozen_at'] > timedelta(seconds=7):
+        player_a['is_frozen'] = False
+        player_a['frozen_at'] = None
+        
+        #counting the pixels
+        currentScreen = sense.get_pixels()
+        score_a = currentScreen.count([248, 252, 0])
+        score_b = currentScreen.count([0, 252, 0])
+        sleep(0.5)
+        #round over
+        sense.show_message("Round Over")
+        sleep(0.1)
+        #player A score
+        sense.show_message("P1", text_colour=[255, 0, 0])
+        sleep(0.1)
+        sense.show_message(str(score_a), text_colour=[255, 255, 0])
+        sleep(0.5)
+        #player B score
+        sense.show_message("P2", text_colour=[0, 0, 255])
+        sleep(0.1)
+        sense.show_message(str(score_b), text_colour=[0, 255, 0])
+        sleep(0.5)
+        sense.show_message("Winner is...")
+        
+        winner_screen() #calls the winnerscreen     
+    pass
+
+    # this clears the space after the player moves - if this isn't ear it
+    # leaves a light trail behind it so look into that
